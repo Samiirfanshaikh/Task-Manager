@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Task Tracker</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-white p-4 sm:p-8">
+    <main class="max-w-3xl mx-auto">
+        <!-- Header -->
+        <header class="mb-8">
+            <p class="text-blue-400 text-sm font-semibold mb-2">
+                STUDENT WORKSPACE
+            </p>
+            <h1 class="text-3xl sm:text-4xl font-bold mb-2">
+                My Task Tracker
+            </h1>
+            <p class="text-slate-400">
+                Organize your work, one task at a time.
+            </p>
+        </header>
+        <!-- Task Form -->
+        <form id="taskForm" class="bg-slate-900 border border-red-800 rounded-2xl p-5 mb-6">
+            <label for="taskInput" class="block text-sm font-medium mb-2">
+                What do you need to do?
+            </label>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input type="text" id="taskInput" placeholder="e.g. Practice JavaScript functions"
+                    class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 outline-none focus:border-blue-500">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-lg font-semibold">
+                    Add Task
+                </button>
+            </div>
+            <p id="message" class="text-sm mt-3 text-red-400"></p>
+        </form>
+        <!-- Statistics -->
+        <section class="grid grid-cols-3 gap-3 mb-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-slate-400 text-sm">Total</p>
+                <p id="totalCount" class="text-2xl font-bold mt-1">0</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-slate-400 text-sm">Pending</p>
+                <p id="pendingCount" class="text-2xl font-bold mt-1 text-amber-400">0</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-slate-400 text-sm">Completed</p>
+                <p id="completedCount" class="text-2xl font-bold mt-1 text-emerald-400">0</p>
+            </div>
+        </section>
+        <!-- Filters -->
+        <section class="mb-4">
+            <div class="flex flex-wrap gap-2">
+                <button type="button" data-filter="all" class="filterBtn bg-blue-600 px-4 py-2 rounded-lg text-sm">
+                    All
+                </button>
+                <button type="button" data-filter="pending"
+                    class="filterBtn bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg text-sm">
+                    Pending
+                </button>
+                <button type="button" data-filter="completed"
+                    class="filterBtn bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg text-sm">
+                    Completed
+                </button>
+            </div>
+        </section>
+        <!-- Task List -->
+        <section>
+            <ul id="taskList" class="space-y-3"></ul>
+            <p id="emptyMessage" class="hidden text-center text-slate-500 py-12">
+                No tasks here. Add one to get started.
+            </p>
+        </section>
+        <!-- Footer -->
+        <footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-500">
+            Your tasks are saved in this browser.
+        </footer>
+    </main>
+    <script>
+        // 1. Select HTML elements
+        const taskForm = document.getElementById("taskForm");
+        const taskInput = document.getElementById("taskInput");
+        const taskList = document.getElementById("taskList");
+        const message = document.getElementById("message");
+        const emptyMessage = document.getElementById("emptyMessage");
+        const totalCount = document.getElementById("totalCount");
+        const pendingCount = document.getElementById("pendingCount");
+        const completedCount = document.getElementById("completedCount");
+        const filterButtons = document.querySelectorAll(".filterBtn");
+        // 2. Load saved tasks from localStorage
+        let tasks = [];
+        try {
+            const savedTasks = localStorage.getItem("studentTasks");
+            if (savedTasks !== null) {
+                const parsedTasks = JSON.parse(savedTasks);
+                if (Array.isArray(parsedTasks)) {
+                    tasks = parsedTasks.filter(task =>
+                        task &&
+                        typeof task.id === "string" &&
+                        typeof task.title === "string" &&
+                        typeof task.completed === "boolean"
+                    );
+                }
+            }
+        } catch (error) {
+            console.error("Could not load saved tasks:", error);
+        }
+        // 3. Set the current filter
+        let currentFilter = "all";
+        // 4. Save tasks to localStorage
+        function saveTasks() {
+            localStorage.setItem("studentTasks", JSON.stringify(tasks));
+        }
+        // 5. Display tasks and update statistics
+        function renderTasks() {
+            taskList.innerHTML = "";
+            // Calculate statistics
+            const completedTasks = tasks.filter(task => task.completed);
+            const pendingTasks = tasks.filter(task => !task.completed);
+            totalCount.textContent = tasks.length;
+            completedCount.textContent = completedTasks.length;
+            pendingCount.textContent = pendingTasks.length;
+            // Select tasks according to the current filter
+            let visibleTasks = tasks;
+            if (currentFilter === "pending") {
+                visibleTasks = pendingTasks;
+            } else if (currentFilter === "completed") {
+                visibleTasks = completedTasks;
+            }
+            // Show an empty message when needed
+            emptyMessage.classList.toggle("hidden", visibleTasks.length !== 0);
+            // Create a list item for each task
+            visibleTasks.forEach(function (task) {
+                const li = document.createElement("li");
+                li.className =
+                    "flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl p-4";
+                // Checkbox
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = task.completed;
+                checkbox.className = "w-5 h-5 accent-blue-500 shrink-0";
+                checkbox.addEventListener("change", function () {
+                    toggleTask(task.id);
+                });
+                // Task title
+                const title = document.createElement("span");
+                title.textContent = task.title;
+                title.className = "flex-1 min-w-0 break-words";
+                if (task.completed) {
+                    title.classList.add("line-through", "text-slate-500");
+                }
+                // Delete button
+                const deleteButton = document.createElement("button");
+                deleteButton.type = "button";
+                deleteButton.textContent = "Delete";
+                deleteButton.setAttribute("aria-label", "Delete " + task.title);
+                deleteButton.className =
+                    "text-red-400 hover:text-red-300 text-sm shrink-0";
+                deleteButton.addEventListener("click", function () {
+                    deleteTask(task.id);
+                });
+                li.append(checkbox, title, deleteButton);
+                taskList.appendChild(li);
+            });
+        }
+        // 6. Add a new task
+        function addTask(title) {
+            const newTask = {
+                id: crypto.randomUUID(),
+                title: title,
+                completed: false
+            };
+            tasks.push(newTask);
+            saveTasks();
+            renderTasks();
+        }
+        // 7. Mark a task completed or pending
+        function toggleTask(id) {
+            tasks = tasks.map(function (task) {
+                if (task.id === id) {
+                    return {
+                        ...task,
+                        completed: !task.completed
+                    };
+                }
+                return task;
+            });
+            saveTasks();
+            renderTasks();
+        }
+        // 8. Delete a task
+        function deleteTask(id) {
+            tasks = tasks.filter(function (task) {
+                return task.id !== id;
+            });
+            saveTasks();
+            renderTasks();
+        }
+        // 9. Handle form submission
+        taskForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+            const title = taskInput.value.trim();
+            if (title === "") {
+                message.textContent = "Please enter a task first.";
+                taskInput.focus();
+                return;
+            }
+            addTask(title);
+            taskInput.value = "";
+            message.textContent = "";
+            taskInput.focus();
+        });
+        // 10. Handle filters
+        filterButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                currentFilter = button.dataset.filter;
+                filterButtons.forEach(function (btn) {
+                    btn.classList.remove("bg-blue-600");
+                    btn.classList.add("bg-slate-800");
+                });
+                button.classList.remove("bg-slate-800");
+                button.classList.add("bg-blue-600");
+                renderTasks();
+            });
+        });
+        // 11. Initial display
+        renderTasks();
+    </script>
+</body>
+</html>
